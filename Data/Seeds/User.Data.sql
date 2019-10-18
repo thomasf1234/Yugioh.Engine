@@ -1,0 +1,3 @@
+BEGIN;
+INSERT INTO User(UserId,Username,EncryptedPassword,Dp) VALUES(1,'test1','\x7b5348413235367dbb1fb0facf769d730600254116a5ccce4a6c0f1756788fda142f063cd1802aa3',0);
+END;
