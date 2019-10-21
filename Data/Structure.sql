@@ -11,8 +11,7 @@ CREATE TABLE IF NOT EXISTS UserCard (
   UserCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   UserId integer,
   CardId integer, 
-  ArtworkId integer, 
-  Count integer DEFAULT 1
+  ArtworkId integer
 );
 
 CREATE TABLE IF NOT EXISTS UserDeck (
@@ -24,7 +23,7 @@ CREATE TABLE IF NOT EXISTS UserDeckCard (
   UserDeckCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   UserDeckId integer NOT NULL, 
   SubDeck varchar CHECK(SubDeck IN ('Main', 'Side', 'Extra')),
-  CardId integer NOT NULL
+  UserCardId integer NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS Card (
@@ -90,7 +89,6 @@ CREATE TABLE IF NOT EXISTS ForbiddenLimitedListCard (
 );
 
 CREATE UNIQUE INDEX IX_UserOnUsername ON User (Username);
-CREATE UNIQUE INDEX IX_UserCardOnUserIdAndCardId ON UserCard (UserId, CardId);
 CREATE INDEX IX_UserDeckOnUserId ON UserDeck (UserId);
 CREATE INDEX IX_CardOnSerialNumber ON Card (SerialNumber);
 CREATE UNIQUE INDEX IX_CardOnDbName ON Card (DbName);

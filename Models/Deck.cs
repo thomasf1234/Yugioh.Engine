@@ -6,11 +6,11 @@ namespace Yugioh.Engine.Models
 {
     public class Deck
     {
-        public IList<Card> Cards { get; set; }
+        public IList<UserCard> UserCards { get; set; }
 
-        public Deck(IList<Card> _cards)
+        public Deck(IList<UserCard> _userCards)
         {
-            this.Cards = _cards;
+            this.UserCards = _userCards;
         }
     }
 }

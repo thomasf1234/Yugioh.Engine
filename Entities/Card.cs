@@ -22,5 +22,20 @@ namespace Yugioh.Engine.Entities
 
         public virtual ICollection<MonsterType> MonsterTypes { get; set; }
         public virtual ICollection<Artwork> Artworks { get; set; }
+
+        public bool IsMonster()
+        {
+            return this.CardType == "Monster";
+        }
+
+        public bool IsSpell()
+        {
+            return this.Category == "Spell";
+        }
+
+        public bool IsTrap()
+        {
+            return this.Category == "Trap";
+        }
     }
 }

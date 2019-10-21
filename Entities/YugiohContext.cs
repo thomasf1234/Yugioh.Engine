@@ -167,8 +167,6 @@ namespace Yugioh.Engine.Entities
                   .IsUnique();
 
         entity.Property(e => e.UserCardId).ValueGeneratedOnAdd();
-
-        entity.Property(e => e.Count).HasDefaultValueSql("1");
       });
 
       modelBuilder.Entity<UserDeck>(entity =>
