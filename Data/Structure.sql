@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS User (
 CREATE TABLE IF NOT EXISTS UserCard (
   UserCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   UserId integer,
-  CardId integer, 
+  BaseCardId integer, 
   ArtworkId integer
 );
 
@@ -26,8 +26,8 @@ CREATE TABLE IF NOT EXISTS UserDeckCard (
   UserCardId integer NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS Card (
-  CardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
+CREATE TABLE IF NOT EXISTS BaseCard (
+  BaseCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   DbName varchar, 
   CardType varchar, 
   Category varchar, 
@@ -52,14 +52,14 @@ CREATE TABLE IF NOT EXISTS UnusableCard (
 CREATE TABLE IF NOT EXISTS MonsterType (
   MonsterTypeId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   Name varchar, 
-  CardId integer
+  BaseCardId integer
 );
 
 CREATE TABLE IF NOT EXISTS Artwork (
   ArtworkId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   SourceUrl varchar, 
   ImagePath varchar, 
-  CardId integer
+  BaseCardId integer
 );
 
 CREATE TABLE IF NOT EXISTS BoosterPack (
@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS BoosterPack (
 CREATE TABLE IF NOT EXISTS BoosterPackCard (
   BoosterPackCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   BoosterPackId integer, 
-  CardId integer, 
+  BaseCardId integer, 
   Rarity varchar
 );
 
@@ -84,16 +84,16 @@ CREATE TABLE IF NOT EXISTS ForbiddenLimitedList (
 CREATE TABLE IF NOT EXISTS ForbiddenLimitedListCard (
   ForbiddenLimitedListCardId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
   ForbiddenLimitedListId integer, 
-  CardId integer, 
+  BaseCardId integer, 
   LimitedStatus varchar
 );
 
 CREATE UNIQUE INDEX IX_UserOnUsername ON User (Username);
 CREATE INDEX IX_UserDeckOnUserId ON UserDeck (UserId);
-CREATE INDEX IX_CardOnSerialNumber ON Card (SerialNumber);
-CREATE UNIQUE INDEX IX_CardOnDbName ON Card (DbName);
+CREATE INDEX IX_BaseCardOnSerialNumber ON BaseCard (SerialNumber);
+CREATE UNIQUE INDEX IX_BaseCardOnDbName ON BaseCard (DbName);
 CREATE UNIQUE INDEX IX_UnusableCardOnDbName ON UnusableCard (DbName);
 CREATE UNIQUE INDEX IX_BoosterPackOnDbName ON BoosterPack (DbName);
 CREATE UNIQUE INDEX IX_ForbiddenLimitedListOnEffectiveFrom ON ForbiddenLimitedList (EffectiveFrom);
-CREATE UNIQUE INDEX UIX_ForbiddenLimitedListCardOnFLLIdAndCardId ON ForbiddenLimitedListCard (ForbiddenLimitedListId, CardId);
+CREATE UNIQUE INDEX UIX_ForbiddenLimitedListCardOnFLLIdAndBaseCardId ON ForbiddenLimitedListCard (ForbiddenLimitedListId, BaseCardId);
 COMMIT;

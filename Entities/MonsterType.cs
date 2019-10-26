@@ -7,8 +7,8 @@ namespace Yugioh.Engine.Entities
     {
         public long MonsterTypeId { get; set; }
         public string Name { get; set; }
-        public long? CardId { get; set; }
+        public long? BaseCardId { get; set; }
 
-        public Card Card { get; set; }
+        public BaseCard BaseCard { get; set; }
     }
 }

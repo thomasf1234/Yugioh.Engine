@@ -7,10 +7,10 @@ namespace Yugioh.Engine.Entities
     {
         public long UserCardId { get; set; }
         public long? UserId { get; set; }
-        public long? CardId { get; set; }
+        public long? BaseCardId { get; set; }
         public long? ArtworkId { get; set; }
         public User User { get; set; }
-        public Card Card { get; set; }
+        public BaseCard BaseCard { get; set; }
         public Artwork Artwork { get; set; }
     }
 }

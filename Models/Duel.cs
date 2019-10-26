@@ -5,33 +5,37 @@ using System.Linq;
 using Stateless;
 using Yugioh.Engine.Entities;
 using Yugioh.Engine.Exceptions;
+using Yugioh.Engine.Models.Events;
+using Yugioh.Engine.Models.Zones;
 
 namespace Yugioh.Engine.Models
 {
   public class Duel
   {
-    public enum States : int { New, Preparing, Ready, TurnStart, DrawPhase, StandbyPhase, MainPhase1, BattlePhaseStartStep, BattlePhaseBattleStep, BattlePhaseDamageStep, BattlePhaseEndStep, MainPhase2, EndPhase, Settled, Cancelled }
+    public enum States : int { New, Preparing, Ready, TurnStart, DrawPhase, StandbyPhase, MainPhase1, BattlePhaseStartStep, BattlePhaseBattleStep, BattlePhaseDamageStep, BattlePhaseEndStep, MainPhase2, EndPhase, TurnEnd, Settled, Cancelled }
     public Player Winner { get; set; }
-    public Player Player1 { get; set; }
-    public Player Player2 { get; set; }
+    public History History { get; }
+    public IList<Player> Players { get; }
     public IList<Turn> Turns { get; set; }
-    private enum Triggers { Confirmed, Prepared, TurnStarted, TurnInitialised, DrawPhaseEnded, StandbyPhasePhaseEnded, BattlePhaseEntered, BattleStepEntered, AttackDeclared, AttackResolved, BattlePhaseEnded, MainPhase2Entered, TurnEnded, WinnerDeclared, Cancel }
+    private enum Triggers { Confirmed, Prepared, NewTurn, TurnStarted, DrawPhaseEnded, StandbyPhasePhaseEnded, BattlePhaseEntered, BattleStepEntered, AttackDeclared, AttackResolved, BattlePhaseEnded, MainPhase2Entered, EndPhaseEntered, TurnEnded, WinnerDeclared, Cancel }
     private readonly StateMachine<States, Triggers> stateMachine;
-    private StateMachine<States, Triggers>.TriggerWithParameters<Player> startTurnTrigger;
-    private StateMachine<States, Triggers>.TriggerWithParameters<UserCard, UserCard> attackDeclaredTrigger;
+    private StateMachine<States, Triggers>.TriggerWithParameters<Player> newTurnTrigger;
+    private StateMachine<States, Triggers>.TriggerWithParameters<Monster, Monster> attackDeclaredTrigger;
 
     private StateMachine<States, Triggers>.TriggerWithParameters<Player> winnerDeclaredTrigger;
 
     public Duel(Player _player1, Player _player2)
     {
+      this.History = new History();
+
       this.Winner = null;
       this.Turns = new List<Turn>();
 
-      this.Player1 = _player1;
-      this.Player2 = _player2;
+      // Set the player opponents
+      _player1.Opponent = _player2;
+      _player2.Opponent = _player1;
 
-      this.Player1.FieldSide = new FieldSide();
-      this.Player2.FieldSide = new FieldSide();
+      this.Players = new List<Player>() { _player1, _player2 };
 
       this.stateMachine = new StateMachine<States, Triggers>(States.New);
 
@@ -52,18 +56,18 @@ namespace Yugioh.Engine.Models
 
       // State - Ready
       this.stateMachine.Configure(States.Ready)
-          .Permit(Triggers.TurnStarted, States.TurnStart)
+          .Permit(Triggers.NewTurn, States.TurnStart)
           .Permit(Triggers.Cancel, States.Cancelled);
 
       // State - TurnStart
-      this.startTurnTrigger = this.stateMachine.SetTriggerParameters<Player>(Triggers.TurnStarted);
+      this.newTurnTrigger = this.stateMachine.SetTriggerParameters<Player>(Triggers.NewTurn);
 
       this.stateMachine.Configure(States.TurnStart)
-        .OnEntryFrom(startTurnTrigger, (turnPlayer) =>
+        .OnEntryFrom(newTurnTrigger, (turnPlayer) =>
         {
           OnTurnStart(turnPlayer);
         })
-        .Permit(Triggers.TurnInitialised, States.DrawPhase)
+        .Permit(Triggers.TurnStarted, States.DrawPhase)
         .Permit(Triggers.WinnerDeclared, States.Settled)
         .Permit(Triggers.Cancel, States.Cancelled);
 
@@ -95,7 +99,7 @@ namespace Yugioh.Engine.Models
         })
         // Cannot enter the BattlePhase on the first turn of the duel
         .PermitIf(Triggers.BattlePhaseEntered, States.BattlePhaseStartStep, () => !GetCurrentTurn().IsFirstTurn())
-        .Permit(Triggers.TurnEnded, States.EndPhase)
+        .Permit(Triggers.EndPhaseEntered, States.EndPhase)
         .Permit(Triggers.WinnerDeclared, States.Settled)
         .Permit(Triggers.Cancel, States.Cancelled);
 
@@ -111,7 +115,7 @@ namespace Yugioh.Engine.Models
         .Permit(Triggers.Cancel, States.Cancelled);
 
       // State - BattlePhaseBattleStep
-      this.attackDeclaredTrigger = this.stateMachine.SetTriggerParameters<UserCard, UserCard>(Triggers.AttackDeclared);
+      this.attackDeclaredTrigger = this.stateMachine.SetTriggerParameters<Monster, Monster>(Triggers.AttackDeclared);
       this.stateMachine.Configure(States.BattlePhaseBattleStep)
         .OnEntry(() =>
         {
@@ -124,9 +128,9 @@ namespace Yugioh.Engine.Models
 
       // State - BattlePhaseDamageStep
       this.stateMachine.Configure(States.BattlePhaseDamageStep)
-        .OnEntryFrom(attackDeclaredTrigger, (attackingUserCard, targetUserCard) =>
+        .OnEntryFrom(attackDeclaredTrigger, (attackingMonster, targetMonster) =>
         {
-          OnBattlePhaseDamageStep(attackingUserCard, targetUserCard);
+          OnBattlePhaseDamageStep(attackingMonster, targetMonster);
         })
         .Permit(Triggers.AttackResolved, States.BattlePhaseBattleStep)
         .Permit(Triggers.WinnerDeclared, States.Settled)
@@ -148,7 +152,7 @@ namespace Yugioh.Engine.Models
         {
           OnMainPhase2();
         })
-        .Permit(Triggers.TurnEnded, States.EndPhase)
+        .Permit(Triggers.EndPhaseEntered, States.EndPhase)
         .Permit(Triggers.WinnerDeclared, States.Settled)
         .Permit(Triggers.Cancel, States.Cancelled);
 
@@ -158,7 +162,17 @@ namespace Yugioh.Engine.Models
         {
           OnEndPhase();
         })
-        .PermitIf(Triggers.TurnStarted, States.TurnStart, () => GetCurrentTurn().Player.Hand.Count < 7)
+        .Permit(Triggers.TurnEnded, States.TurnEnd)
+        .Permit(Triggers.WinnerDeclared, States.Settled)
+        .Permit(Triggers.Cancel, States.Cancelled);
+
+      // State - TurnEnd
+      this.stateMachine.Configure(States.TurnEnd)
+        .OnEntry(() =>
+        {
+          OnTurnEnd();
+        })
+        .PermitIf(Triggers.NewTurn, States.TurnStart, () => GetCurrentTurn().Player.Hand.Count < 7)
         .Permit(Triggers.WinnerDeclared, States.Settled)
         .Permit(Triggers.Cancel, States.Cancelled);
 
@@ -179,7 +193,14 @@ namespace Yugioh.Engine.Models
 
     public Turn GetCurrentTurn()
     {
-      return this.Turns.Last();
+      if (this.Turns.Any())
+      {
+        return this.Turns.Last();
+      }
+      else
+      {
+        return null;
+      }
     }
 
     public Player GetTurnPlayer()
@@ -195,12 +216,17 @@ namespace Yugioh.Engine.Models
 
     public void Start(Player firstPlayer)
     {
-      this.stateMachine.Fire(this.startTurnTrigger, firstPlayer);
+      this.stateMachine.Fire(this.newTurnTrigger, firstPlayer);
     }
 
     public void EnterBattlePhase()
     {
       this.stateMachine.Fire(Triggers.BattlePhaseEntered);
+    }
+
+    public void EnterEndPhase()
+    {
+      this.stateMachine.Fire(Triggers.EndPhaseEntered);
     }
 
     public void EndTurn()
@@ -213,86 +239,171 @@ namespace Yugioh.Engine.Models
       this.stateMachine.Fire(Triggers.DrawPhaseEnded);
     }
 
-    public void Shuffle(Deck deck)
+    public void ShuffleDeck(Player player)
+    {
+      IList<Card> cards = player.FieldSide.DeckZone.Cards;
+      Shuffle(cards);
+
+      // Record ShuffleDeckEvent
+      ShuffleDeckEvent shuffleDeckEvent = new ShuffleDeckEvent(DateTime.Now, GetCurrentTurn(), player);
+      this.History.Events.Add(shuffleDeckEvent);
+    }
+
+    public void Shuffle(IList<Card> cards)
     {
       Random _random = new Random();
-      int n = deck.UserCards.Count;
+      int n = cards.Count;
       for (int i = 0; i < n; i++)
       {
         // Use Next on random instance with an argument.
         // ... The argument is an exclusive bound.
         //     So we will not go past the end of the array.
         int r = i + _random.Next(n - i);
-        UserCard userCard = deck.UserCards[r];
+        Card card = cards[r];
 
         // Swap cards
-        deck.UserCards[r] = deck.UserCards[i];
-        deck.UserCards[i] = userCard;
+        cards[r] = cards[i];
+        cards[i] = card;
       }
     }
+
+
 
     public void Draw(Player player)
     {
-      IList<UserCard> playerDeckUserCards = player.FieldSide.MainDeck.UserCards;
+      Turn currentTurn = GetCurrentTurn();
+      IList<Card> playerDeckZoneCards = player.FieldSide.DeckZone.Cards;
 
-      if (playerDeckUserCards.Count == 0)
+      if (playerDeckZoneCards.Any())
       {
-        this.stateMachine.Fire(this.winnerDeclaredTrigger, player.Opponent);
+        int topCardIndex = playerDeckZoneCards.Count - 1;
+        Card topCard = playerDeckZoneCards[topCardIndex];
+        playerDeckZoneCards.RemoveAt(topCardIndex);
+        player.Hand.Add(topCard);
+        topCard.SetFaceUp();
       }
       else
       {
-        player.Hand.Add(playerDeckUserCards[0]);
-        playerDeckUserCards.RemoveAt(0);
+        this.stateMachine.Fire(this.winnerDeclaredTrigger, player.Opponent);
       }
+
+      // Record DrawCardEvent
+      DrawCardEvent drawCardEvent = new DrawCardEvent(DateTime.Now, currentTurn, player);
+      this.History.Events.Add(drawCardEvent);
     }
 
-    public void NormalSummon(UserCard userCard, int zone)
+    // public void NormalSummonOrSet(Card card, MonsterZone monsterZone, bool set, Card tribute1)
+    // {
+
+    // }
+
+    // public void NormalSummonOrSet(Card card, MonsterZone monsterZone, bool set, Card tribute1, Card tribute2)
+    // {
+
+    // }
+
+    // public void NormalSummonOrSet(Card card, MonsterZone monsterZone, bool set, Card tribute1, Card tribute2, Card tribute3)
+    // {
+
+    // }
+
+    public void NormalSummonOrSet(Card card, MonsterZone monsterZone, bool set)
     {
       Turn currentTurn = GetCurrentTurn();
       Player turnPlayer = currentTurn.Player;
 
-      if (currentTurn.ReachedSummonLimit())
+      if (IsInMainPhase1() || IsInMainPhase2())
       {
-        Console.WriteLine("Player has reached the summon limit this turn");
-      }
-      else if (turnPlayer.FieldSide.MonsterZones[zone] != null)
-      {
-        Console.WriteLine("Monster zone is currently occupied");
-      }
-      else if (turnPlayer.Hand.Contains(userCard))
-      {
-        if (userCard.Card.IsMonster())
+        if (CanNormalSummonOrSet())
         {
-          if (userCard.Card.Level > 4)
+          if (monsterZone.IsOccupied())
           {
-            Console.WriteLine("Monster requires tributes to normal summon");
+            throw new IllegalMoveException($"{turnPlayer.User.Username} attempted to normal summon or set into an already occupied zone");
           }
           else
           {
-            turnPlayer.Hand.Remove(userCard);
-            turnPlayer.FieldSide.MonsterZones[zone] = userCard;
-            currentTurn.SummonCount += 1;
+            if (turnPlayer.Hand.Contains(card))
+            {
+              if (card.UserCard.BaseCard.IsMonster())
+              {
+                if (card.UserCard.BaseCard.Level > 4)
+                {
+                  throw new IllegalMoveException($"{turnPlayer.User.Username} attempted to normal summon or set a monster that requires tributes");
+                }
+                else
+                {
+                  turnPlayer.Hand.Remove(card);
+
+                  if (set == true)
+                  {
+                    card.SetFaceDown();
+                    card.SetHorizontal();
+                    monsterZone.Set(card);
+                  }
+                  else
+                  {
+                    card.SetFaceUp();
+                    card.SetVertical();
+                    monsterZone.Set(card);
+                    Monster summonedMonster = new Monster(card);
+                    monsterZone.Monster = summonedMonster;
+                  }
+
+                  // Record NormalSummonOrSetEvent
+                  NormalSummonOrSetEvent normalSummonOrSetEvent = new NormalSummonOrSetEvent(DateTime.Now, currentTurn, turnPlayer, card, monsterZone, set);
+                  this.History.Events.Add(normalSummonOrSetEvent);
+                }
+              }
+              else
+              {
+                throw new IllegalMoveException($"{turnPlayer.User.Username} attempted to normal summon or set a NonMonster");
+              }
+            }
+            else
+            {
+              throw new IllegalMoveException($"{turnPlayer.User.Username} does not contain the specified card in their hand");
+            }
           }
         }
         else
         {
-          Console.WriteLine("NonMonsters cannot be normal summoned");
+          throw new IllegalMoveException($"{turnPlayer.User.Username} can no longer normal summon or set");
         }
       }
       else
       {
-        Console.WriteLine("Player does not contain the specified card in their hand");
+        throw new IllegalMoveException($"{turnPlayer.User.Username} attempted to normal summon or set outside of MainPhase1 or MainPhase2");
       }
     }
 
-    public void AttackDirectly(UserCard attackingMonster)
+    public void AttackDirectly(Monster attackingMonster)
     {
-      this.stateMachine.Fire(this.attackDeclaredTrigger, attackingMonster, null);
+      Turn currentTurn = GetCurrentTurn();
+      Player turnPlayer = currentTurn.Player;
+
+      if (this.History.HasMonsterAttacked(currentTurn, attackingMonster))
+      {
+        throw new IllegalMoveException($"{turnPlayer.User.Username} attempt to attack with monster '{attackingMonster.Name}' a second time");
+      }
+      else
+      {
+        this.stateMachine.Fire(this.attackDeclaredTrigger, attackingMonster, null);
+      }
     }
 
-    public void AttackMonster(UserCard attackingMonster, UserCard targetMonster)
+    public void AttackMonster(Monster attackingMonster, Monster attackedMonster)
     {
-      this.stateMachine.Fire(this.attackDeclaredTrigger, attackingMonster, targetMonster);
+      Turn currentTurn = GetCurrentTurn();
+      Player turnPlayer = currentTurn.Player;
+
+      if (this.History.HasMonsterAttacked(currentTurn, attackingMonster))
+      {
+        throw new IllegalMoveException($"{turnPlayer.User.Username} attempt to attack with monster '{attackingMonster.Name}' a second time");
+      }
+      else
+      {
+        this.stateMachine.Fire(this.attackDeclaredTrigger, attackingMonster, attackedMonster);
+      }
     }
 
     public bool IsInDrawPhase()
@@ -331,18 +442,46 @@ namespace Yugioh.Engine.Models
       return this.stateMachine.State == States.EndPhase;
     }
 
-
+    public bool HasTurnEnded()
+    {
+      return this.stateMachine.State == States.TurnEnd;
+    }
 
     // Options
-    // public bool CanNormalSummon(DuelCard duelCard)
-    // {
-    //     return false;
-    // }
+    public bool MustDiscardCardAtTurnEnd()
+    {
+      return GetTurnPlayer().Hand.Count > 6;
+    }
 
-    // public bool CanNormalSet()
-    // {
-    //     return false;
-    // }
+    public void DiscardCard(Player player, Card card)
+    {
+      Turn currentTurn = GetCurrentTurn();
+      
+      if (player.Hand.Contains(card))
+      {
+        player.Hand.Remove(card);
+        card.SetFaceUp();
+        player.FieldSide.Graveyard.Cards.Add(card);
+
+        // Record cardDiscardedEvent
+        CardDiscardedEvent cardDiscardedEvent = new CardDiscardedEvent(DateTime.Now, currentTurn, player, card);
+        this.History.Events.Add(cardDiscardedEvent);
+      }
+      else 
+      {
+        throw new IllegalMoveException($"{player.User.Username} attempted to discard '{card.UserCard.BaseCard.Name}' from hand but wasn't found");
+      }
+    }
+
+    public bool CanNormalSummonOrSet()
+    {
+      return !this.History.HasNormalSummonedOrSet(GetCurrentTurn());
+    }
+
+    public bool CanAttack(Monster monster)
+    {
+      return !this.History.HasMonsterAttacked(GetCurrentTurn(), monster);
+    }
 
     // public bool CanSpecialSummon()
     // {
@@ -369,15 +508,17 @@ namespace Yugioh.Engine.Models
     //     return false;
     // }
 
-    public int NormalSummonTributeCount(DuelCard duelCard)
+
+
+    public int NormalSummonTributeCount(Card card)
     {
-      if (duelCard.UserCard.Card.IsMonster())
+      if (card.UserCard.BaseCard.IsMonster())
       {
-        if (duelCard.UserCard.Card.Level < 5)
+        if (card.UserCard.BaseCard.Level < 5)
         {
           return 0;
         }
-        else if (duelCard.UserCard.Card.Level < 7)
+        else if (card.UserCard.BaseCard.Level < 7)
         {
           return 1;
         }
@@ -386,38 +527,46 @@ namespace Yugioh.Engine.Models
           return 2;
         }
       }
-      else 
+      else
       {
         return 0;
       }
     }
 
-
     private void OnPreparing()
     {
-      // Set the player opponents
-      this.Player1.Opponent = this.Player2;
-      this.Player2.Opponent = this.Player1;
-
-      // Shuffle both user decks
-      Shuffle(this.Player2.MainDeck);
-      Shuffle(this.Player1.MainDeck);
-
-      // Set Player LP
-      this.Player1.Lp = 8000;
-      this.Player2.Lp = 8000;
-
-      // Populate field for Players
-      this.Player1.FieldSide.MainDeck = this.Player1.MainDeck;
-      this.Player1.FieldSide.ExtraDeck = this.Player1.ExtraDeck;
-      this.Player2.FieldSide.MainDeck = this.Player2.MainDeck;
-      this.Player2.FieldSide.ExtraDeck = this.Player2.ExtraDeck;
-
-      // Draw Cards
-      for (int i = 0; i < 5; ++i)
+      foreach (Player player in this.Players)
       {
-        Draw(this.Player1);
-        Draw(this.Player2);
+        // Set Player LP
+        player.LifePoints = 8000;
+
+        // Set the FieldSide
+        player.FieldSide = new FieldSide();
+
+        // Populate DeckZone
+        foreach (UserCard userCard in player.MainDeck.UserCards)
+        {
+          Card card = new Card(userCard, player);
+          card.Orientation = Card.Orientations.FaceDown;
+          player.FieldSide.DeckZone.Cards.Add(card);
+        }
+
+        // Populate ExtraDeckZone
+        foreach (UserCard userCard in player.ExtraDeck.UserCards)
+        {
+          Card card = new Card(userCard, player);
+          card.Orientation = Card.Orientations.FaceDown;
+          player.FieldSide.ExtraDeckZone.Cards.Add(card);
+        }
+
+        // Shuffle deck
+        ShuffleDeck(player);
+
+        // Draw Cards
+        for (int i = 0; i < 5; ++i)
+        {
+          Draw(player);
+        }
       }
 
       // Set to Prepared state
@@ -428,26 +577,17 @@ namespace Yugioh.Engine.Models
     {
       // Build new turn
       int turnIndex = this.Turns.Count();
-      int summonLimit = 1;
-      Turn turn = new Turn(turnIndex, turnPlayer, summonLimit);
+      Turn turn = new Turn(turnIndex, turnPlayer);
       this.Turns.Add(turn);
 
-      // Set to TurnInitialised state
-      this.stateMachine.Fire(Triggers.TurnInitialised);
+      // Set to TurnStarted state
+      this.stateMachine.Fire(Triggers.TurnStarted);
     }
 
     private void OnDrawPhase()
     {
       Player turnPlayer = GetTurnPlayer();
-
-      if (GetCurrentTurn().IsFirstTurn())
-      {
-        Console.WriteLine("Cannot draw on first turn");
-      }
-      else
-      {
-        Draw(turnPlayer);
-      }
+      Draw(turnPlayer);
 
       // Set to StandbyPhase state
       this.stateMachine.Fire(Triggers.DrawPhaseEnded);
@@ -473,25 +613,56 @@ namespace Yugioh.Engine.Models
 
     }
 
-    private void OnBattlePhaseDamageStep(UserCard attackingUserCard, UserCard targetUserCard)
+    private void OnBattlePhaseDamageStep(Monster attackingMonster, Monster targetMonster)
     {
       Turn currentTurn = GetCurrentTurn();
       Player turnPlayer = currentTurn.Player;
 
-      if (targetUserCard == null)
+      if (targetMonster == null)
       {
         Console.WriteLine("Attacking directly");
-        turnPlayer.Opponent.Lp -= Convert.ToInt32(attackingUserCard.Card.Attack);
+        InflictDamage(turnPlayer.Opponent, attackingMonster.Attack);
+      }
+      else if (targetMonster.IsInAttackPosition())
+      {
+        Console.WriteLine("Attacking monster in attack position");
 
-        if (turnPlayer.Opponent.Lp <= 0)
+        if (attackingMonster.Attack > targetMonster.Attack)
         {
-          this.stateMachine.Fire(this.winnerDeclaredTrigger, turnPlayer);
+          int damageAmount = attackingMonster.Attack - targetMonster.Attack;
+          InflictDamage(turnPlayer.Opponent, damageAmount);
+          Destroy(targetMonster.Card);
+        }
+        else if (attackingMonster.Attack < targetMonster.Attack)
+        {
+          int damageAmount = targetMonster.Attack - attackingMonster.Attack;
+          InflictDamage(turnPlayer, damageAmount);
+          Destroy(attackingMonster.Card);
+        }
+        else if (attackingMonster.Attack == targetMonster.Attack && attackingMonster.Attack > 0)
+        {
+          Destroy(attackingMonster.Card);
+          Destroy(targetMonster.Card);
         }
       }
-      else 
+      else if (targetMonster.IsInDefensePosition())
       {
-        Console.WriteLine("Attacking monster");
+        Console.WriteLine("Attacking monster in defense position");
+
+        if (attackingMonster.Attack > targetMonster.Defense)
+        {
+          Destroy(targetMonster.Card);
+        }
+        else if (attackingMonster.Attack < targetMonster.Defense)
+        {
+          int damageAmount = targetMonster.Defense - attackingMonster.Attack;
+          InflictDamage(turnPlayer, damageAmount);
+        }
       }
+
+      // Record AttackEvent
+      AttackEvent attackEvent = new AttackEvent(DateTime.Now, currentTurn, attackingMonster, targetMonster, turnPlayer, turnPlayer.Opponent);
+      this.History.Events.Add(attackEvent);
 
       this.stateMachine.Fire(Triggers.AttackResolved);
     }
@@ -508,14 +679,120 @@ namespace Yugioh.Engine.Models
 
     private void OnEndPhase()
     {
+      
+    }
+
+    private void OnTurnEnd()
+    {
       Player turnPlayer = GetTurnPlayer();
       // Trigger TurnStart for the turnPlayer opponent
-      this.stateMachine.Fire(this.startTurnTrigger, turnPlayer.Opponent);
+      this.stateMachine.Fire(this.newTurnTrigger, turnPlayer.Opponent);
     }
 
     private void OnSettled(Player wonPlayer)
     {
       this.Winner = wonPlayer;
+    }
+
+    private void Destroy(Card card)
+    {
+      Player owner = card.Owner;
+
+      foreach (Zone zone in owner.FieldSide.MonsterZones)
+      {
+        if (zone.IsOccupied() && zone.Cards.Contains(card))
+        {
+          zone.Cards.Remove(card);
+
+          Type zoneType = zone.GetType();
+          if (zoneType == typeof(MonsterZone))
+          {
+            MonsterZone monsterZone = (MonsterZone)zone;
+            monsterZone.Monster = null;
+          }
+
+          break;
+        }
+      }
+
+      owner.FieldSide.Graveyard.Cards.Add(card);
+    }
+
+    private void InflictDamage(Player player, int amount, int opponentAmount)
+    {
+      Turn currentTurn = GetCurrentTurn();
+
+      if (amount > 0)
+      {
+        player.LifePoints -= amount;
+        // Record DamageTakenEvent
+        DamageTakenEvent damageTakenEvent = new DamageTakenEvent(DateTime.Now, currentTurn, player, amount);
+        this.History.Events.Add(damageTakenEvent);
+
+        player.Opponent.LifePoints -= opponentAmount;
+
+        // Check if any player has won
+        EvaluatePlayerWonState();
+      }
+      else
+      {
+        throw new IllegalMoveException($"Attempted to inflict non-positive damage");
+      }
+    }
+
+    private void InflictDamage(Player player, int amount)
+    {
+      Turn currentTurn = GetCurrentTurn();
+
+      if (amount > 0)
+      {
+        player.LifePoints -= amount;
+        // Record DamageTakenEvent
+        DamageTakenEvent damageTakenEvent = new DamageTakenEvent(DateTime.Now, currentTurn, player, amount);
+        this.History.Events.Add(damageTakenEvent);
+
+        // Check if any player has won
+        EvaluatePlayerWonState();
+      }
+      else
+      {
+        throw new IllegalMoveException($"Attempted to inflict non-positive damage to {player.User.Username}");
+      }
+    }
+
+    private void GainLifePoints(Player player, int amount)
+    {
+      Turn currentTurn = GetCurrentTurn();
+
+      if (amount > 0)
+      {
+        player.LifePoints += amount;
+        // Record DamageTakenEvent
+        LifePointsGainEvent lifePointsGainEvent = new LifePointsGainEvent(DateTime.Now, currentTurn, player, amount);
+        this.History.Events.Add(lifePointsGainEvent);
+      }
+      else
+      {
+        throw new IllegalMoveException($"Attempted to gain non-positive life points for {player.User.Username}");
+      }
+    }
+
+    private void EvaluatePlayerWonState()
+    {
+      Player turnPlayer = GetTurnPlayer();
+
+      if (turnPlayer.Opponent.LifePoints <= 0 && turnPlayer.LifePoints > 0)
+      {
+        this.stateMachine.Fire(this.winnerDeclaredTrigger, turnPlayer);
+      }
+      else if (turnPlayer.Opponent.LifePoints > 0 && turnPlayer.LifePoints <= 0)
+      {
+        this.stateMachine.Fire(this.winnerDeclaredTrigger, turnPlayer.Opponent);
+      }
+      else if (turnPlayer.Opponent.LifePoints <= 0 && turnPlayer.LifePoints <= 0)
+      {
+        this.stateMachine.Fire(this.winnerDeclaredTrigger, null);
+      }
     }
   }
 }
@@ -526,19 +803,20 @@ namespace Yugioh.Engine.Models
 // digraph {
 //  New ->  Preparing [label="Confirmed"];
 //  Preparing ->  Ready [label="Prepared"];
-//  Ready -> TurnStart [label="TurnStarted"];
-//  TurnStart -> DrawPhase [label="TurnInitialised"];
+//  Ready -> TurnStart [label="NewTurn"];
+//  TurnStart -> DrawPhase [label="TurnStarted"];
 //  DrawPhase -> StandbyPhase [label="DrawPhaseEnded (if card drawn)"];
 //  StandbyPhase -> MainPhase1 [label="StandbyPhaseEnded"];
 //  MainPhase1 -> BattlePhaseStartStep [label="BattlePhaseEntered (unless first turn)"];
-//  MainPhase1 -> EndPhase [label="TurnEnded"];
+//  MainPhase1 -> EndPhase [label="EndPhaseEntered"];
 //  BattlePhaseStartStep -> BattlePhaseBattleStep [label="BattleStepEntered"];
 //  BattlePhaseBattleStep -> BattlePhaseDamageStep [label="AttackDeclared"];
 //  BattlePhaseDamageStep -> BattlePhaseBattleStep [label="AttackResolved"];
 //  BattlePhaseBattleStep -> BattlePhaseEndStep [label="BattlePhaseEnded"];
 //  BattlePhaseEndStep -> MainPhase2 [label="MainPhase2Entered"];
-//  MainPhase2 -> EndPhase [label="TurnEnded"];
-//  EndPhase -> TurnStart [label="TurnStarted"];
+//  MainPhase2 -> EndPhase [label="EndPhaseEntered"];
+//  EndPhase -> TurnEnd [label="TurnEnded"];
+//  TurnEnd -> TurnStart [label="NewTurn (unless > 6 cards in hand)"]
 // node [shape=box];
 //  Preparing -> "Prepare()" [label="On Entry" style=dotted];
 // } 

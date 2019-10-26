@@ -19,7 +19,7 @@ namespace Yugioh.Engine.Entities
     public virtual DbSet<Artwork> Artwork { get; set; }
     public virtual DbSet<BoosterPack> BoosterPack { get; set; }
     public virtual DbSet<BoosterPackCard> BoosterPackCard { get; set; }
-    public virtual DbSet<Card> Card { get; set; }
+    public virtual DbSet<BaseCard> BaseCard { get; set; }
     public virtual DbSet<ForbiddenLimitedList> ForbiddenLimitedList { get; set; }
     public virtual DbSet<ForbiddenLimitedListCard> ForbiddenLimitedListCard { get; set; }
     public virtual DbSet<MonsterType> MonsterType { get; set; }
@@ -71,7 +71,7 @@ namespace Yugioh.Engine.Entities
         entity.Property(e => e.Rarity).HasColumnType("varchar");
       });
 
-      modelBuilder.Entity<Card>(entity =>
+      modelBuilder.Entity<BaseCard>(entity =>
       {
         entity.HasIndex(e => e.DbName)
                   .HasName("IX_CardOnDbName")
@@ -80,7 +80,7 @@ namespace Yugioh.Engine.Entities
         entity.HasIndex(e => e.SerialNumber)
                   .HasName("IX_CardOnSerialNumber");
 
-        entity.Property(e => e.CardId).ValueGeneratedNever();
+        entity.Property(e => e.BaseCardId).ValueGeneratedNever();
 
         entity.Property(e => e.Attack).HasColumnType("varchar");
 
@@ -118,8 +118,8 @@ namespace Yugioh.Engine.Entities
 
       modelBuilder.Entity<ForbiddenLimitedListCard>(entity =>
       {
-        entity.HasIndex(e => new { e.ForbiddenLimitedListId, e.CardId })
-                  .HasName("UIX_ForbiddenLimitedListCardOnFLLIdAndCardId")
+        entity.HasIndex(e => new { e.ForbiddenLimitedListId, e.BaseCardId })
+                  .HasName("UIX_ForbiddenLimitedListCardOnFLLIdAndBaseCardId")
                   .IsUnique();
 
         entity.Property(e => e.ForbiddenLimitedListCardId).ValueGeneratedOnAdd();
@@ -162,8 +162,8 @@ namespace Yugioh.Engine.Entities
 
       modelBuilder.Entity<UserCard>(entity =>
       {
-        entity.HasIndex(e => new { e.UserId, e.CardId })
-                  .HasName("IX_UserCardOnUserIdAndCardId")
+        entity.HasIndex(e => new { e.UserId, e.BaseCardId })
+                  .HasName("IX_UserCardOnUserIdAndBaseCardId")
                   .IsUnique();
 
         entity.Property(e => e.UserCardId).ValueGeneratedOnAdd();
