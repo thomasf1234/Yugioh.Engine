@@ -8,7 +8,7 @@ namespace Yugioh.Engine.Entities
         public long? UserDeckId { get; set; }
         public long? UserCardId { get; set; }
         public string SubDeck { get; set; }
-        public UserDeck UserDeck { get; set; }
-        public UserCard UserCard { get; set; }
+        public virtual UserDeck UserDeck { get; set; }
+        public virtual UserCard UserCard { get; set; }
     }
 }

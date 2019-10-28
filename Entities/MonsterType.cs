@@ -9,6 +9,6 @@ namespace Yugioh.Engine.Entities
         public string Name { get; set; }
         public long? BaseCardId { get; set; }
 
-        public BaseCard BaseCard { get; set; }
+        public virtual BaseCard BaseCard { get; set; }
     }
 }

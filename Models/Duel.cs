@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 
 using Stateless;
+using Stateless.Graph;
 using Yugioh.Engine.Entities;
 using Yugioh.Engine.Exceptions;
 using Yugioh.Engine.Models.Events;
@@ -189,6 +190,12 @@ namespace Yugioh.Engine.Models
     public States GetState()
     {
       return this.stateMachine.State;
+    }
+
+    public void PrintDotGraph()
+    {
+      string graph = UmlDotGraph.Format(this.stateMachine.GetInfo());
+      Console.WriteLine(graph);
     }
 
     public Turn GetCurrentTurn()
@@ -481,6 +488,18 @@ namespace Yugioh.Engine.Models
     public bool CanAttack(Monster monster)
     {
       return !this.History.HasMonsterAttacked(GetCurrentTurn(), monster);
+    }
+
+    public bool CanEnterBattlePhase()
+    {
+      Turn currentTurn = GetCurrentTurn();
+
+      return IsInMainPhase1() && !currentTurn.IsFirstTurn();
+    }
+
+    public bool CanEnterEndPhase()
+    {
+      return IsInMainPhase1() || IsInMainPhase2() || IsInBattlePhase();
     }
 
     // public bool CanSpecialSummon()

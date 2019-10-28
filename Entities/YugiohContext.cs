@@ -17,8 +17,8 @@ namespace Yugioh.Engine.Entities
     }
 
     public virtual DbSet<Artwork> Artwork { get; set; }
-    public virtual DbSet<BoosterPack> BoosterPack { get; set; }
-    public virtual DbSet<BoosterPackCard> BoosterPackCard { get; set; }
+    public virtual DbSet<BaseBoosterPack> BaseBoosterPack { get; set; }
+    public virtual DbSet<BaseBoosterPackCard> BaseBoosterPackCard { get; set; }
     public virtual DbSet<BaseCard> BaseCard { get; set; }
     public virtual DbSet<ForbiddenLimitedList> ForbiddenLimitedList { get; set; }
     public virtual DbSet<ForbiddenLimitedListCard> ForbiddenLimitedListCard { get; set; }
@@ -28,6 +28,7 @@ namespace Yugioh.Engine.Entities
     public virtual DbSet<UserCard> UserCard { get; set; }
     public virtual DbSet<UserDeck> UserDeck { get; set; }
     public virtual DbSet<UserDeckCard> UserDeckCard { get; set; }
+    public virtual DbSet<Rarity> Rarity { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
@@ -49,13 +50,13 @@ namespace Yugioh.Engine.Entities
         entity.Property(e => e.SourceUrl).HasColumnType("varchar");
       });
 
-      modelBuilder.Entity<BoosterPack>(entity =>
+      modelBuilder.Entity<BaseBoosterPack>(entity =>
       {
         entity.HasIndex(e => e.DbName)
-                  .HasName("IX_BoosterPackOnDbName")
+                  .HasName("IX_BaseBoosterPackOnDbName")
                   .IsUnique();
 
-        entity.Property(e => e.BoosterPackId).ValueGeneratedOnAdd();
+        entity.Property(e => e.BaseBoosterPackId).ValueGeneratedOnAdd();
 
         entity.Property(e => e.DbName).HasColumnType("varchar");
 
@@ -64,11 +65,9 @@ namespace Yugioh.Engine.Entities
         entity.Property(e => e.Name).HasColumnType("varchar");
       });
 
-      modelBuilder.Entity<BoosterPackCard>(entity =>
+      modelBuilder.Entity<BaseBoosterPackCard>(entity =>
       {
-        entity.Property(e => e.BoosterPackCardId).ValueGeneratedOnAdd();
-
-        entity.Property(e => e.Rarity).HasColumnType("varchar");
+        entity.Property(e => e.BaseBoosterPackCardId).ValueGeneratedOnAdd();
       });
 
       modelBuilder.Entity<BaseCard>(entity =>
@@ -177,12 +176,15 @@ namespace Yugioh.Engine.Entities
         entity.Property(e => e.UserDeckId).ValueGeneratedOnAdd();
       });
 
-      modelBuilder.Entity<UserDeckCard>(entity =>
+      modelBuilder.Entity<Rarity>(entity =>
       {
-        entity.HasIndex(e => e.UserDeckId)
-                  .HasName("IX_UserDeckCardOnUserDeckId");
+        entity.HasIndex(e => e.RarityId)
+                  .HasName("IX_RarityOnRarityId");
 
-        entity.Property(e => e.UserDeckCardId).ValueGeneratedOnAdd();
+        entity.Property(e => e.RarityId).ValueGeneratedOnAdd();
+
+        entity.Property(e => e.Name).HasColumnType("varchar");
+        entity.Property(e => e.Special).HasColumnType("boolean");
       });
     }
   }
