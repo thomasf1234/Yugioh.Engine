@@ -7,27 +7,32 @@ namespace Yugioh.Engine.Models
     public enum States : int { Heads = 0, Tails = 1 };
 
     private States _state;
+    private Random _random;
+
+    public Coin()
+    {
+      this._random = new Random();
+    }
 
     public void Flip()
     {
-      Random random = new Random();
-      int result = random.Next(0, 2);
-      this._state = (States) result;
+      int result = this._random.Next(0, 2);
+      this._state = (States)result;
     }
 
     public States GetState()
     {
-        return this._state;
+      return this._state;
     }
 
     public bool IsHeads()
     {
-        return this._state == States.Heads;
+      return this._state == States.Heads;
     }
 
     public bool IsTails()
     {
-        return this._state == States.Tails;
+      return this._state == States.Tails;
     }
   }
 }

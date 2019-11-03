@@ -10,18 +10,20 @@ namespace Yugioh.Engine.Models
   public class BoosterPack
   {
     public enum States : int { Sealed = 0, Opened = 1 };
+    public BaseBoosterPack BaseBoosterPack { get; }
+    public IList<UserCard> UserCards { get; }
     private States _state;
-    private IList<UserCard> _userCards;
 
-    public BoosterPack(IList<UserCard> userCards)
+    public BoosterPack(BaseBoosterPack _baseBoosterPack, IList<UserCard> _userCards)
     {
+      this.BaseBoosterPack = _baseBoosterPack;
       // Ensure the cards no longer belong to a user
-      foreach (UserCard userCard in userCards)
+      foreach (UserCard userCard in _userCards)
       {
         userCard.UserId = null;
       }
 
-      this._userCards = userCards;
+      this.UserCards = _userCards;
       this._state = States.Sealed;
     }
 
@@ -31,13 +33,13 @@ namespace Yugioh.Engine.Models
       {
         IList<UserCard> userCards = new List<UserCard>();
 
-        foreach (UserCard userCard in this._userCards)
+        foreach (UserCard userCard in this.UserCards)
         {
           userCards.Add(userCard);
         }
 
         // Empty our pack
-        this._userCards.Clear();
+        this.UserCards.Clear();
 
         // Set state to Opened;
         this._state = States.Opened;

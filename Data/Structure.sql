@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS UserCard (
 
 CREATE TABLE IF NOT EXISTS UserDeck (
   UserDeckId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
+  Name varchar, 
   UserId integer
 );
 
@@ -80,7 +81,8 @@ CREATE TABLE IF NOT EXISTS BaseBoosterPackCard (
 
 CREATE TABLE IF NOT EXISTS Rarity (
   RarityId integer PRIMARY KEY AUTOINCREMENT NOT NULL, 
-  Name integer,
+  DbName varchar,
+  Name varchar,
   Special boolean, 
   Ratio float
 );
