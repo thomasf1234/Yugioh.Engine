@@ -1,20 +1,22 @@
-﻿using System;
-using System.Collections.Generic;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Metadata;
+﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace Yugioh.Engine.Entities
 {
   public partial class YugiohContext : DbContext
   {
-    public YugiohContext()
+    private readonly ILoggerFactory loggerFactory;
+
+    public YugiohContext(ILoggerFactory _loggerFactory)
     {
+      this.loggerFactory = _loggerFactory;
     }
 
-    public YugiohContext(DbContextOptions<YugiohContext> options)
-        : base(options)
-    {
-    }
+    public YugiohContext(DbContextOptions<YugiohContext> options)  
+        : base(options)  
+    {  
+          
+    }  
 
     public virtual DbSet<Artwork> Artwork { get; set; }
     public virtual DbSet<BaseBoosterPack> BaseBoosterPack { get; set; }
@@ -28,6 +30,7 @@ namespace Yugioh.Engine.Entities
     public virtual DbSet<UserCard> UserCard { get; set; }
     public virtual DbSet<UserDeck> UserDeck { get; set; }
     public virtual DbSet<UserDeckCard> UserDeckCard { get; set; }
+    public virtual DbSet<ActiveUserDeck> ActiveUserDeck { get; set; }
     public virtual DbSet<Rarity> Rarity { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -35,7 +38,8 @@ namespace Yugioh.Engine.Entities
       if (!optionsBuilder.IsConfigured)
       {
 #warning To protect potentially sensitive information in your connection string, you should move it out of source code. See http://go.microsoft.com/fwlink/?LinkId=723263 for guidance on storing connection strings.
-        optionsBuilder.UseSqlite("DataSource=/Users/tfisher/Documents/workspace/Yugioh.Engine/Data/Yugioh.sqlite3");
+        optionsBuilder.UseSqlite("DataSource=/Users/tfisher/Documents/workspace/Yugioh.Engine/Data/Yugioh.sqlite3;Read Only=True;");
+        optionsBuilder.UseLoggerFactory(this.loggerFactory).EnableSensitiveDataLogging()  ;
       }
     }
 
@@ -174,6 +178,8 @@ namespace Yugioh.Engine.Entities
                   .HasName("IX_UserDeckOnUserId");
 
         entity.Property(e => e.UserDeckId).ValueGeneratedOnAdd();
+
+        entity.Property(e => e.Name).HasColumnType("varchar");
       });
 
       modelBuilder.Entity<Rarity>(entity =>
