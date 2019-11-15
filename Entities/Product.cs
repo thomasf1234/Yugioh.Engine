@@ -1,8 +1,8 @@
 ﻿namespace Yugioh.Engine.Entities
 {
-  public partial class Rarity
+  public partial class Product
   {
-    public int RarityId { get; set; }
+    public int ProductId { get; set; }
     public string Name { get; set; }
   }
 }
