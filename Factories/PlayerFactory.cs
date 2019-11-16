@@ -1,6 +1,9 @@
+using System.Collections.Generic;
+
 using Microsoft.Extensions.Logging;
 
 using Yugioh.Engine.Models;
+using Yugioh.Engine.Models.Cards;
 using Yugioh.Engine.Services;
 
 namespace Yugioh.Engine.Factories
@@ -14,7 +17,20 @@ namespace Yugioh.Engine.Factories
       this._logger = loggerFactory.CreateLogger<PlayerFactory>();
       this._cardService = cardService;
     }
-    
+
+    public Player Build(string playerName)
+    {
+      Player player = new Player();
+
+      player.Name = playerName;
+      player.DuelistPoints = 0;
+      player.Cards = new List<Card>();
+      player.Decks = new List<Deck>();
+      player.ActiveDeckName = null;
+
+      return player;
+    }
+
     public Player Build(Save save)
     {
       Player player = new Player();
