@@ -1,14 +1,18 @@
 using System.Collections.Generic;
 using System.Linq;
 
+using Microsoft.Extensions.Logging;
+
 using Yugioh.Engine.Entities;
 
 namespace Yugioh.Engine.Repositories
 {
   public class SetCardRepository : BaseRepository, ISetCardRepository
   {
-    public SetCardRepository(YugiohContext _yugiohContext) : base(_yugiohContext)
+    private readonly ILogger<SetCardRepository> _logger;
+    public SetCardRepository(ILoggerFactory loggerFactory, YugiohContext _yugiohContext) : base(_yugiohContext)
     {
+      this._logger = loggerFactory.CreateLogger<SetCardRepository>();
     }
 
     public IList<SetCard> All()
