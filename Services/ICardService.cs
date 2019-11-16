@@ -7,6 +7,6 @@ namespace Yugioh.Engine.Services
   public interface ICardService
   {
     Card Get(string cardNumber);
-    IList<Card> Get(string[] cardNumbers);
+    IList<Card> Get(IList<string> cardNumbers);
   }
 }

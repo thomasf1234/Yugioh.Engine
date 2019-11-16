@@ -7,7 +7,7 @@ namespace Yugioh.Engine.Repositories
   public interface ISetCardRepository
   {
     SetCard Get(string cardNumber);
-    IList<SetCard> Get(string[] cardNumbers);
+    IList<SetCard> Get(IList<string> cardNumbers);
     IList<SetCard> All();
   }
 }

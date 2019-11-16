@@ -21,7 +21,7 @@ namespace Yugioh.Engine.Repositories
       return this.YugiohContext.SetCard.Find(cardNumber);
     }
 
-    public IList<SetCard> Get(string[] cardNumbers)
+    public IList<SetCard> Get(IList<string> cardNumbers)
     {
       return this.YugiohContext.SetCard.Where(sc => cardNumbers.Contains(sc.Number)).ToList();
     }

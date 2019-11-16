@@ -28,7 +28,7 @@ namespace Yugioh.Engine.Services
       return card;
     }
 
-    public IList<Models.Cards.Card> Get(string[] cardNumbers)
+    public IList<Models.Cards.Card> Get(IList<string> cardNumbers)
     {
       IList<Models.Cards.Card> cards = new List<Models.Cards.Card>();
       IList<SetCard> setCards = this._setCardRepository.Get(cardNumbers);
